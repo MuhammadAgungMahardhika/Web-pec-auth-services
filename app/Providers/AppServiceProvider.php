@@ -23,7 +23,9 @@ class AppServiceProvider extends ServiceProvider
         \Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::except([
             '/api/register',
             '/api/login',
-            '/api/logout'
+            '/api/logout',
+            '/api/refresh',
+            '/api/me'
         ]);
     }
 }
