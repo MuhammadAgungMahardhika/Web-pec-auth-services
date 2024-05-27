@@ -39,28 +39,23 @@ class AuthController extends Controller
         }
     }
 
-    public function test()
-    {
-        return response()->json(['message' => 'tes'], 200);
-    }
+
     // Login user
     public function login(Request $request)
     {
         try {
             $credentials = $request->only('email', 'password');
-
-            if (!$token = JWTAuth::attempt($credentials)) {
+            $token = $this->createAccessToken($credentials);
+            $refreshToken = $this->createRefreshToken();
+            if (!$token || !$refreshToken) {
                 return response()->json(['error' => 'Unauthorized'], 401);
             }
 
-            // Generate refresh token
-
-
-            // Return response with access token and refresh token
             return response()->json([
                 'access_token' => $token,
                 'token_type' => 'bearer',
-                'expires_in' => JWTAuth::factory()->getTTL() * 60
+                'expires_in' =>  JWTAuth::factory()->getTTL() * 60,
+                'refresh_token' => $refreshToken
             ]);
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
@@ -72,29 +67,65 @@ class AuthController extends Controller
     }
 
 
-    // Logout user
-    public function logout()
+    // Access token
+    protected function createAccessToken($credentials)
     {
-        Auth::logout();
-        return response()->json(['message' => 'Successfully logged out']);
+        return JWTAuth::attempt($credentials);
     }
+    // Refresh token
+    protected function createRefreshToken()
+    {
+        return JWTAuth::claims(['exp' => now()->addMinutes(config('jwt.refresh_ttl'))->timestamp])->fromUser(Auth::user());
+    }
+    // New Access token
+    protected function createNewAccessToken($lastToken)
+    {
+        return JWTAuth::refresh($lastToken);
+    }
+    // New Refresh token
+    protected function createNewRefreshToken($user)
+    {
+        return JWTAuth::claims(['exp' => now()->addMinutes(config('jwt.refresh_ttl'))->timestamp])->fromUser($user);
+    }
+
+    public function refresh()
+    {
+        try {
+
+            $user = JWTAuth::parseToken()->authenticate();
+            $lastToken = JWTAuth::getToken();
+            $newToken = $this->createNewAccessToken($lastToken);
+            $newRefreshToken = $this->createNewRefreshToken($user);
+            return response()->json([
+                'access_token' => $newToken,
+                'token_type' => 'bearer',
+                'expires_in' => JWTAuth::factory()->getTTL() * 60,
+                'refresh_token' => $newRefreshToken
+            ]);
+        } catch (JWTException $e) {
+            return response()->json(['error' => 'could_not_refresh_token'], 422);
+        }
+    }
+
     // Get the authenticated user
     public function me()
     {
         return response()->json(Auth::user());
     }
 
-    // Refresh token
-    public function refresh()
+    public function logout(Request $request)
     {
-        $user = Auth::user();
+        try {
+            // Invalidate both access token and refresh token
+            $accessToken = JWTAuth::getToken();
+            $refreshToken = $request->input('refresh_token');
 
-        // Generate token from user object
-        $token = JWTAuth::fromUser($user);
-        return response()->json([
-            'access_token' => $token,
-            'token_type' => 'bearer',
-            'expires_in' => JWTAuth::factory()->getTTL() * 60,
-        ]);
+            JWTAuth::invalidate($accessToken);
+
+            Auth::logout();
+            return response()->json(['message' => 'Successfully logged out' + $refreshToken]);
+        } catch (JWTException $e) {
+            return response()->json(['error' => 'Failed to logout, please try again.'], 500);
+        }
     }
 }
