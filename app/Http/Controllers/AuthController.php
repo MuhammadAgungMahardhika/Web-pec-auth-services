@@ -20,7 +20,6 @@ class AuthController extends Controller
                 'id_role' => 'required|integer',
                 'email' => 'required|string|email|max:255|unique:users',
                 'password' => 'required|string|min:8',
-                'oke' => 'required'
             ]);
 
             $user = User::create([
