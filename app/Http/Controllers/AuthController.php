@@ -20,6 +20,7 @@ class AuthController extends Controller
                 'id_role' => 'required|integer',
                 'email' => 'required|string|email|max:255|unique:users',
                 'password' => 'required|string|min:8',
+                'oke' => 'required'
             ]);
 
             $user = User::create([
@@ -56,11 +57,11 @@ class AuthController extends Controller
                 'token_type' => 'bearer',
                 'expires_in' =>  JWTAuth::factory()->getTTL() * 60,
                 'refresh_token' => $refreshToken
-            ]);
+            ])->header('Authorization', 'Bearer ' . $token);
         } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 500);
+            return response()->json(['error' => $e->getMessage()], 422);
         } catch (JWTException $e) {
-            return response()->json(['error' => $e->getMessage()], 500);
+            return response()->json(['error' => $e->getMessage()], 422);
         } catch (\Throwable $th) {
             return response()->json(['message' => 'throwable error', $th->getMessage()], 422);
         }
