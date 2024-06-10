@@ -29,42 +29,58 @@ class AuthController extends Controller
                 'password' => bcrypt($request->password),
             ]);
 
-            return response()->json(['message' => 'User successfully registered', 'data' => $user], 201);
-        } catch (\Throwable $th) {
-            return response()->json(['message' => 'throwable error', $th->getMessage()], 422);
+            return jsonResponse(null, 201, 'User successfully registered');
+        } catch (\Throwable $e) {
+            return jsonResponse(null, 422, $e->getMessage());
         } catch (ValidationException $e) {
-            return response()->json(['message' => 'validation error', $e->errors()], 422);
+            return jsonResponse(null, 422, $e->getMessage());
         } catch (\Exception $e) {
-            return response()->json(['message' => 'unexpected error', $e->getMessage()], 422);
+            return jsonResponse(null, 422, $e->getMessage());
         }
     }
 
 
-    // Login user
+    // Fungsi login yang telah diubah
     public function login(Request $request)
     {
         try {
+            $request->validate([
+                'email' => 'required|string|email|max:255',
+                'password' => 'required|string',
+            ]);
+
             $credentials = $request->only('email', 'password');
-            $token = $this->createAccessToken($credentials);
-            $refreshToken = $this->createRefreshToken();
-            if (!$token || !$refreshToken) {
-                return response()->json(['error' => 'Unauthorized'], 401);
+
+            if (!Auth::attempt($credentials)) {
+                return jsonResponse(null, 401, 'Invalid email or password');
             }
 
-            return response()->json([
+
+            $token = $this->createAccessToken($credentials);
+            $refreshToken = $this->createRefreshToken();
+
+            if (!$token || !$refreshToken) {
+                return jsonResponse(null, 401, 'Unauthorized');
+            }
+
+            $data = [
                 'access_token' => $token,
                 'token_type' => 'bearer',
-                'expires_in' =>  JWTAuth::factory()->getTTL() * 60,
-                'refresh_token' => $refreshToken
-            ])->header('Authorization', 'Bearer ' . $token);
+                'expires_in' => JWTAuth::factory()->getTTL() * 60,
+                'refresh_token' => $refreshToken,
+            ];
+
+            return jsonResponse($data, 200, 'Login successful')
+                ->header('Authorization', 'Bearer ' . $token);
         } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 422);
-        } catch (JWTException $e) {
-            return response()->json(['error' => $e->getMessage()], 422);
+            return jsonResponse(null, 422, $e->getMessage());
+        } catch (ValidationException $e) {
+            return jsonResponse(null, 422, $e->getMessage());
         } catch (\Throwable $th) {
-            return response()->json(['message' => 'throwable error', $th->getMessage()], 422);
+            return jsonResponse(null, 422, $th->getMessage());
         }
     }
+
 
 
     // Access token
@@ -102,15 +118,15 @@ class AuthController extends Controller
                 'expires_in' => JWTAuth::factory()->getTTL() * 60,
                 'refresh_token' => $newRefreshToken
             ]);
-        } catch (JWTException $e) {
-            return response()->json(['error' => 'could_not_refresh_token'], 422);
+        } catch (\Throwable $th) {
+            return jsonResponse(null, 422, "Failed to refresh token");
         }
     }
 
     // Get the authenticated user
     public function me()
     {
-        return response()->json(Auth::user());
+        return jsonResponse(Auth::user(), 200);
     }
 
     public function logout(Request $request)
@@ -123,9 +139,9 @@ class AuthController extends Controller
             JWTAuth::invalidate($accessToken);
 
             Auth::logout();
-            return response()->json(['message' => 'Successfully logged out' + $refreshToken]);
-        } catch (JWTException $e) {
-            return response()->json(['error' => 'Failed to logout, please try again.'], 500);
+            return jsonResponse(null, 200, 'Successfully logged out');
+        } catch (\Throwable $th) {
+            return jsonResponse(null, 422, "Failed logged out");
         }
     }
 }
