@@ -13,25 +13,16 @@ services:
         working_dir: /var/www/
         volumes:
             - ./:/var/www
-        networks:
-            - authservices
-    db:
-        image: mysql:8.3
-        container_name: db-pec-auth
-        restart: unless-stopped
         environment:
-            MYSQL_DATABASE: ${DB_DATABASE}
-            MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
-            MYSQL_PASSWORD: ${DB_PASSWORD}
-            MYSQL_USER: ${DB_USERNAME}
-            SERVICE_TAGS: dev
-            SERVICE_NAME: mysql
-        ports:
-            - "3306:3306"
-        volumes:
-            - ./docker-compose/mysql:/docker-entrypoint-initdb.d
+            DB_HOST: mysql_container # Nama kontainer MySQL
+            DB_PORT: 3306 # Port MySQL dalam kontainer
+            DB_DATABASE: pec_authservice # Nama database
+            DB_USERNAME: root # Username
+            DB_PASSWORD: rootpassword # Password
         networks:
-            - authservices
+            - pec-authservice-network
+            - mynetwork # network terhubung ke mysql
+
     nginx:
         image: nginx:alpine
         container_name: web-server-nginx
@@ -42,8 +33,10 @@ services:
             - ./:/var/www
             - ./docker-compose/nginx:/etc/nginx/conf.d/
         networks:
-            - authservices
+            - pec-authservice-network
 
 networks:
-    authservices:
+    pec-authservice-network:
         driver: bridge
+    mynetwork:
+        external: true
